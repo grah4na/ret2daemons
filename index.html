@@ -170,8 +170,8 @@
 
     // ---- 2. Spiral settings ----
     const TURNS = 3, MAX_R = 44, STEPS = 500;
-    const BASE_SPEED = 0.8;     // normal flow speed
-    const DIRECTION = 1;        // 1 = inward, -1 = outward
+    const BASE_SPEED = 0.35;    // normal flow speed
+    const DIRECTION = -1;       // -1 = inward (spiral winds into the centre), 1 = outward
     const TWO_PI = Math.PI * 2;
     const total = (TURNS + 0.6) * TWO_PI;
     const b = MAX_R / (TURNS * TWO_PI);
