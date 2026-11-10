@@ -52,6 +52,19 @@
       font-style: italic;
       margin-top: 1rem;
     }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .gallery .slot {
+      aspect-ratio: 1 / 1;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #eee;
+    }
     a {
       color: blue;
     }
@@ -81,12 +94,18 @@
     <section>
       <h2>Who this is not for</h2>
       <ol>
-        <li>Those looking for a shortcut or a “learn hacking in one message” guide</li>
-        <li>Those asking where to begin without first searching, reading, or trying on your own</li>
+        <li>Those looking for a shortcut or a “learning to hack in 30 days” guide</li>
+        <li>Those asking where to begin without first searching, reading, or trying on their own</li>
         <li>Those seeking ways to target systems they don’t own or lack explicit permission to test</li>
       </ol>
       <p class="note">In short: If you have to ask how to start, you’re not ready yet.</p>
     </section>
+
+    <div class="gallery">
+      <img src="" alt="" class="slot">
+      <img src="" alt="" class="slot">
+      <img src="" alt="" class="slot">
+    </div>
 
     <section>
       <h2>How to join</h2>
