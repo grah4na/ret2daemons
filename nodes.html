@@ -12,6 +12,7 @@
       color: #111;
       font-family: system-ui, -apple-system, sans-serif;
       line-height: 1.6;
+      transition: background 0.3s, color 0.3s;
     }
     main {
       max-width: 800px;
@@ -41,9 +42,53 @@
     a {
       color: blue;
     }
+    .corner-mark {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      width: 2rem;
+      height: 2rem;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: inherit;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: scale 0.2s;
+    }
+    .corner-mark:hover {
+      scale: 1.1;
+    }
+    #spiral { color: inherit; width: 100%; height: 100%; }
+    :root[data-theme="dark"] body {
+      background: #111;
+      color: #eee;
+    }
+    :root[data-theme="dark"] a {
+      color: #7ab7ff;
+    }
+    :root[data-theme="dark"] h2 {
+      opacity: 0.8;
+    }
+    :root[data-theme="dark"] .gallery .slot {
+      background: #333;
+    }
   </style>
 </head>
 <body>
+  <button class="corner-mark" id="theme-toggle" aria-label="Toggle theme">
+    <svg id="spiral" viewBox="-50 -50 100 100" aria-label="logo">
+      <defs>
+        <clipPath id="clip"><circle r="46"/></clipPath>
+      </defs>
+      <g clip-path="url(#clip)">
+        <path id="path" fill="none" stroke="currentColor" stroke-width="5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </svg>
+  </button>
   <main>
     <h1>ret2daemons</h1>
     <nav><a href="index.html">Home</a> · <a href="work.html">Work</a> · <a href="nodes.html">Nodes</a></nav>
@@ -54,5 +99,112 @@
       <p>Yet to be published.</p>
     </section>
   </main>
+
+
+  <script>
+    // ---- 1. Set these to match your site's real colours ----
+    const THEMES = {
+      light: { bg: "#ffffff", fg: "#111111" },
+      dark:  { bg: "#111111", fg: "#eeeeee" },
+    };
+
+    // ---- 2. Spiral settings ----
+    const TURNS = 3, MAX_R = 44, STEPS = 500;
+    const BASE_SPEED = 0.8;     // normal flow speed
+    const DIRECTION = 1;        // 1 = inward, -1 = outward
+    const TWO_PI = Math.PI * 2;
+    const total = (TURNS + 0.6) * TWO_PI;
+    const b = MAX_R / (TURNS * TWO_PI);
+
+    const logo = document.getElementById("spiral");
+    const root = document.documentElement;
+    const paths = [document.getElementById("path")];   // every spiral that should animate
+
+    // Restore saved theme
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark') root.dataset.theme = 'dark';
+
+    function spiralD(s) {
+      let d = "";
+      for (let i = 0; i <= STEPS; i++) {
+        const u = (i / STEPS) * total, th = u + s, r = b * u;
+        d += (i ? "L" : "M") + (r * Math.cos(th)).toFixed(2) + " " + (r * Math.sin(th)).toFixed(2) + " ";
+      }
+      return d;
+    }
+
+    // ---- 3. Flow loop (speeds up when boosted, then settles) ----
+    let phase = 0, last = performance.now(), boost = 0;
+    function loop(now) {
+      const dt = (now - last) / 1000; last = now;
+      boost *= Math.pow(0.05, dt);
+      phase += (BASE_SPEED + boost) * dt * TWO_PI;
+      const d = spiralD(-DIRECTION * (phase % TWO_PI));
+      paths.forEach(p => p.setAttribute("d", d));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // ---- 4. Click: grow -> switch theme -> shrink back ----
+    let busy = false;
+    logo.style.cursor = "pointer";
+
+    logo.addEventListener("click", async () => {
+      if (busy) return;
+      busy = true;
+
+      const next = root.dataset.theme === "dark" ? "light" : "dark";
+      const c = THEMES[next];
+
+      const r = logo.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const endR = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy));
+      const scale = (endR / (r.width * 0.46)) * 1.05;   // circle radius is 46% of logo width
+
+      // Big copy of the logo, drawn in the NEW theme's colours
+      const ov = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      ov.setAttribute("viewBox", "-50 -50 100 100");
+      ov.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;` +
+                         `overflow:visible;z-index:99999;pointer-events:none;transform-origin:50% 50%;color:${c.fg}`;
+      ov.innerHTML = `
+        <defs><clipPath id="clipBig"><circle r="46"/></clipPath></defs>
+        <circle r="46" fill="${c.bg}"/>
+        <g clip-path="url(#clipBig)">
+          <path fill="none" stroke="currentColor" stroke-width="5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </g>`;
+      document.body.appendChild(ov);
+      const bigPath = ov.querySelector("path");
+      paths.push(bigPath);
+      logo.style.visibility = "hidden";
+
+      const ease = "cubic-bezier(.7, 0, .3, 1)";
+
+      // grow while spinning faster
+      boost = 5;
+      await ov.animate(
+        [{ transform: "scale(1)" }, { transform: `scale(${scale})` }],
+        { duration: 550, easing: ease, fill: "forwards" }
+      ).finished;
+
+      // screen is fully covered -> switch theme underneath
+      root.dataset.theme = next;
+      localStorage.setItem('theme', next);
+      await new Promise(res => setTimeout(res, 200));   // hold at full size, still spinning
+
+      // shrink back into the logo
+      boost = 5;
+      await ov.animate(
+        [{ transform: `scale(${scale})` }, { transform: "scale(1)" }],
+        { duration: 550, easing: ease, fill: "forwards" }
+      ).finished;
+
+      // clean up
+      paths.splice(paths.indexOf(bigPath), 1);
+      ov.remove();
+      logo.style.visibility = "";
+      busy = false;
+    });
+  </script>
 </body>
 </html>
